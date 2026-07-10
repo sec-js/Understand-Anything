@@ -11,11 +11,10 @@ then reviews the output for semantic issues the script cannot catch.
 Usage:
     python merge-batch-graphs.py <project-root>
 
-Input:
-    <project-root>/.understand-anything/intermediate/batch-*.json
-
-Output:
-    <project-root>/.understand-anything/intermediate/assembled-graph.json
+Input/output live under the project's data dir (`.ua/`, or legacy
+`.understand-anything/` when that directory already exists):
+    Input:  <ua-dir>/intermediate/batch-*.json
+    Output: <ua-dir>/intermediate/assembled-graph.json
 """
 
 import json
@@ -25,6 +24,12 @@ import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+
+def resolve_ua_dir(root: Path) -> Path:
+    """Mirror core resolveUaDir: legacy .understand-anything/ wins if present."""
+    legacy = root / ".understand-anything"
+    return legacy if legacy.is_dir() else root / ".ua"
 
 
 # ── Configuration ─────────────────────────────────────────────────────────
@@ -1026,7 +1031,7 @@ def main() -> None:
         sys.exit(1)
 
     project_root = Path(sys.argv[1]).resolve()
-    intermediate_dir = project_root / ".understand-anything" / "intermediate"
+    intermediate_dir = resolve_ua_dir(project_root) / "intermediate"
 
     if not intermediate_dir.is_dir():
         print(f"Error: {intermediate_dir} does not exist", file=sys.stderr)

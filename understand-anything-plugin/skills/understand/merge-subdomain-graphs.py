@@ -2,8 +2,9 @@
 """
 merge-subdomain-graphs.py — Merge subdomain knowledge-graph files into one.
 
-Auto-discovers *knowledge-graph*.json files in .understand-anything/
-(excluding knowledge-graph.json itself), loads the existing
+Auto-discovers *knowledge-graph*.json files in the project's data dir
+(`.ua/`, or legacy `.understand-anything/` when that directory already exists)
+excluding knowledge-graph.json itself, loads the existing
 knowledge-graph.json as a base if present, and merges everything
 into a single knowledge-graph.json.
 
@@ -15,7 +16,7 @@ knowledge-graph.json is loaded as a base but never as a discovery input
 (prevents self-merging on repeated runs).
 
 Output:
-    <project-root>/.understand-anything/knowledge-graph.json
+    <ua-dir>/knowledge-graph.json
 """
 
 import json
@@ -23,6 +24,12 @@ import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+
+def resolve_ua_dir(root: Path) -> Path:
+    """Mirror core resolveUaDir: legacy .understand-anything/ wins if present."""
+    legacy = root / ".understand-anything"
+    return legacy if legacy.is_dir() else root / ".ua"
 
 # Edge types that carry the domain hierarchy. Dropping one of these changes
 # downstream graph traversal (unlike a routine `related` edge), so they are
@@ -308,7 +315,7 @@ def main() -> None:
         sys.exit(1)
 
     project_root = Path(sys.argv[1]).resolve()
-    ua_dir = project_root / ".understand-anything"
+    ua_dir = resolve_ua_dir(project_root)
 
     if not ua_dir.is_dir():
         print(f"Error: {ua_dir} does not exist", file=sys.stderr)

@@ -1,10 +1,14 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { mergeDesignGraph } from "@understand-anything/core/figma";
 
+// Mirror core's resolveUaDir: the legacy `.understand-anything/` dir wins for
+// both reads and writes when it already exists; otherwise use `.ua/`.
+const uaDir = (root) => { const legacy = join(root, ".understand-anything"); return existsSync(legacy) ? legacy : join(root, ".ua"); };
+
 const [, , projectRoot] = process.argv;
-const interDir = join(projectRoot, ".understand-anything", "intermediate");
+const interDir = join(uaDir(projectRoot), "intermediate");
 const manifest = JSON.parse(readFileSync(join(interDir, "scan-manifest.json"), "utf8"));
 const analyses = readdirSync(interDir)
   .filter((f) => /^analysis-batch-.*\.json$/.test(f))
@@ -20,7 +24,7 @@ if (!result.success || !result.data) {
   process.exit(1);
 }
 
-const outDir = join(projectRoot, ".understand-anything");
+const outDir = uaDir(projectRoot);
 writeFileSync(join(outDir, "knowledge-graph.json"), JSON.stringify(result.data, null, 2));
 writeFileSync(join(outDir, "meta.json"), JSON.stringify({
   lastAnalyzedAt: new Date().toISOString(),

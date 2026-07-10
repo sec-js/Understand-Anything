@@ -1292,5 +1292,62 @@ class TestEmptyBatchGuard(unittest.TestCase):
         self.assertNotIn("contributed 0 nodes and 0 edges", stderr)
 
 
+class TestUaDirResolution(unittest.TestCase):
+    """The merge script reads/writes under the resolved data dir: `.ua/` for
+    fresh projects, legacy `.understand-anything/` when that dir already exists
+    (no migration). Exercised end-to-end via subprocess.
+    """
+
+    def setUp(self) -> None:
+        import tempfile
+        self.tmp = Path(tempfile.mkdtemp(prefix="ua-mbg-uadir-"))
+
+    def tearDown(self) -> None:
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _write_batch(self, dir_name: str, name: str, nodes: list) -> Path:
+        import json as _j
+        inter = self.tmp / dir_name / "intermediate"
+        inter.mkdir(parents=True, exist_ok=True)
+        (inter / name).write_text(_j.dumps({"nodes": nodes, "edges": []}), encoding="utf-8")
+        return inter
+
+    def _run(self) -> int:
+        import subprocess
+        return subprocess.run(
+            [sys.executable, str(_MODULE_PATH), str(self.tmp)],
+            capture_output=True, text=True,
+        ).returncode
+
+    def test_fresh_project_uses_dot_ua(self) -> None:
+        self._write_batch(".ua", "batch-1.json", [_file_node("src/a.ts")])
+        rc = self._run()
+        self.assertEqual(rc, 0)
+        self.assertTrue((self.tmp / ".ua" / "intermediate" / "assembled-graph.json").is_file())
+        # Legacy dir must not be created for a fresh project.
+        self.assertFalse((self.tmp / ".understand-anything").exists())
+
+    def test_legacy_project_keeps_understand_anything(self) -> None:
+        self._write_batch(".understand-anything", "batch-1.json", [_file_node("src/a.ts")])
+        rc = self._run()
+        self.assertEqual(rc, 0)
+        self.assertTrue(
+            (self.tmp / ".understand-anything" / "intermediate" / "assembled-graph.json").is_file()
+        )
+        self.assertFalse((self.tmp / ".ua").exists())
+
+    def test_legacy_dir_wins_when_both_present(self) -> None:
+        self._write_batch(".understand-anything", "batch-1.json", [_file_node("src/a.ts")])
+        # A stray empty .ua/ must not divert the merge away from the legacy dir.
+        (self.tmp / ".ua" / "intermediate").mkdir(parents=True, exist_ok=True)
+        rc = self._run()
+        self.assertEqual(rc, 0)
+        self.assertTrue(
+            (self.tmp / ".understand-anything" / "intermediate" / "assembled-graph.json").is_file()
+        )
+        self.assertFalse((self.tmp / ".ua" / "intermediate" / "assembled-graph.json").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

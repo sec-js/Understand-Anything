@@ -3,6 +3,10 @@ import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { parseFileKey, FigmaApiSource, parseDocument, extractTokens, applyScreenThumbnails } from "@understand-anything/core/figma";
 
+// Mirror core's resolveUaDir: the legacy `.understand-anything/` dir wins for
+// both reads and writes when it already exists; otherwise use `.ua/`.
+const uaDir = (root) => { const legacy = join(root, ".understand-anything"); return existsSync(legacy) ? legacy : join(root, ".ua"); };
+
 const [, , projectRoot, urlOrKey] = process.argv;
 if (!projectRoot || !urlOrKey) {
   console.error("usage: figma-scan.mjs <projectRoot> <figmaUrlOrKey>");
@@ -13,7 +17,7 @@ const fileKey = parseFileKey(urlOrKey);
 const source = new FigmaApiSource(fileKey); // reads FIGMA_TOKEN from env; throws a friendly error if missing
 const doc = await source.fetchDocument();
 
-const metaPath = join(projectRoot, ".understand-anything", "meta.json");
+const metaPath = join(uaDir(projectRoot), "meta.json");
 let prevVersion = null;
 if (existsSync(metaPath)) {
   try {
@@ -64,7 +68,7 @@ const manifest = {
   edges,
 };
 
-const interDir = join(projectRoot, ".understand-anything", "intermediate");
+const interDir = join(uaDir(projectRoot), "intermediate");
 mkdirSync(interDir, { recursive: true });
 writeFileSync(join(interDir, "scan-manifest.json"), JSON.stringify(manifest, null, 2));
 
@@ -83,7 +87,7 @@ console.error(
  * Best-effort: never throw (thumbnails are optional).
  */
 async function refreshThumbnailsInPlace(projectRoot, source) {
-  const graphPath = join(projectRoot, ".understand-anything", "knowledge-graph.json");
+  const graphPath = join(uaDir(projectRoot), "knowledge-graph.json");
   if (!existsSync(graphPath)) return;
   try {
     const graph = JSON.parse(readFileSync(graphPath, "utf8"));

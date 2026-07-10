@@ -8,8 +8,11 @@
  * Usage:
  *   node compute-batches.mjs <project-root> [--changed-files=<path>]
  *
- * Input:  <project-root>/.understand-anything/intermediate/scan-result.json
- * Output: <project-root>/.understand-anything/intermediate/batches.json
+ * Input/output live under the project's data dir (`.ua/`, or legacy
+ * `.understand-anything/` when that directory already exists — resolved by
+ * core's resolveUaDir):
+ *   Input:  <ua-dir>/intermediate/scan-result.json
+ *   Output: <ua-dir>/intermediate/batches.json
  */
 
 import { readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
@@ -36,7 +39,7 @@ try {
 } catch {
   core = await import(pathToFileURL(resolve(PLUGIN_ROOT, 'packages/core/dist/index.js')).href);
 }
-const { TreeSitterPlugin, PluginRegistry, builtinLanguageConfigs, registerAllParsers } = core;
+const { TreeSitterPlugin, PluginRegistry, builtinLanguageConfigs, registerAllParsers, resolveUaDir } = core;
 
 import Graph from 'graphology';
 import louvain from 'graphology-communities-louvain';
@@ -369,7 +372,8 @@ async function main() {
     }
   }
 
-  const scanPath = join(projectRoot, '.understand-anything', 'intermediate', 'scan-result.json');
+  const uaDir = resolveUaDir(projectRoot);
+  const scanPath = join(uaDir, 'intermediate', 'scan-result.json');
   if (!existsSync(scanPath)) {
     process.stderr.write(`Error: scan-result.json not found at ${scanPath}\n`);
     process.exit(1);
@@ -567,7 +571,7 @@ async function main() {
     batches: finalBatches,
   };
 
-  const outPath = join(projectRoot, '.understand-anything', 'intermediate', 'batches.json');
+  const outPath = join(uaDir, 'intermediate', 'batches.json');
   writeFileSync(outPath, JSON.stringify(output, null, 2), 'utf-8');
   const batchSizes = finalBatches.map(b => b.files.length);
   const maxSize = batchSizes.length ? Math.max(...batchSizes) : 0;

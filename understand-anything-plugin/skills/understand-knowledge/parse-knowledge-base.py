@@ -10,7 +10,9 @@ Usage:
     python parse-knowledge-base.py <wiki-directory>
 
 Output:
-    Writes scan-manifest.json to <wiki-directory>/.understand-anything/intermediate/
+    Writes scan-manifest.json to <wiki-directory>/<ua-dir>/intermediate/, where
+    <ua-dir> is `.ua/` (or legacy `.understand-anything/` when that directory
+    already exists).
 """
 
 import json
@@ -18,6 +20,12 @@ import os
 import re
 import sys
 from pathlib import Path
+
+
+def resolve_ua_dir(root: Path) -> Path:
+    """Mirror core resolveUaDir: legacy .understand-anything/ wins if present."""
+    legacy = root / ".understand-anything"
+    return legacy if legacy.is_dir() else root / ".ua"
 
 # ---------------------------------------------------------------------------
 # Regex patterns
@@ -538,7 +546,7 @@ def main():
     manifest = parse_wiki(root)
 
     # Write output
-    out_dir = root / ".understand-anything" / "intermediate"
+    out_dir = resolve_ua_dir(root) / "intermediate"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "scan-manifest.json"
     out_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
